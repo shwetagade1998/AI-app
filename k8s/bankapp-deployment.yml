@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bankapp-deployment
+  namespace: bankapp
+  labels:
+    app: bankapp
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: bankapp
+
+  template:
+    metadata:
+      labels:
+        app: bankapp
+
+    spec:
+      initContainers:
+      - name: init-myservice
+        image: busybox:1.28
+        command: ['sh', '-c', "until nc -z mysql-service 3306 ;do sleep 2; done"]
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+      containers:
+      - name: bankapp
+        image: sumit9165/ai-bankapp-devops-bankapp:latest
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          failureThreshold: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          periodSeconds: 5
+
+        ports:
+        - containerPort: 8080
+
+        envFrom:
+        - configMapRef:
+            name: bankapp-config-map
+        - secretRef:
+            name: bankapp-secrets
+      
